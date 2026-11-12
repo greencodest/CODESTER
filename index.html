@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CODESTER – Short Video Feed</title>
+<style>
+:root{--cy:#00f2fe;--mg:#fe0979;--bg:#000;--tx:#fff;--mu:#9a9a9a;--card:#151515;color-scheme:dark}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#000;color:var(--tx);font:14px system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+button{background:none;border:0;color:inherit;font:inherit;cursor:pointer}
+svg{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#app{position:relative;height:100%;max-width:480px;margin:0 auto;background:#000;overflow:hidden;box-shadow:0 0 0 1px #1a1a1a}
+.view{position:absolute;inset:0 0 calc(56px + env(safe-area-inset-bottom,0px)) 0;display:none;overflow-y:auto}
+.view.on{display:block}
+/* feed */
+#home{overflow:hidden}
+#feed{height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain}
+#feed::-webkit-scrollbar{display:none}
+.post{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden;user-select:none}
+.bg{position:absolute;inset:0;background:linear-gradient(160deg,var(--a),var(--b),#000 120%);background-size:200% 200%;animation:drift 8s ease-in-out infinite alternate}
+.bg::after{content:attr(data-e);position:absolute;left:50%;top:40%;font-size:96px;transform:translate(-50%,-50%);animation:bob 3s ease-in-out infinite;opacity:.85}
+@keyframes drift{to{background-position:100% 100%}}
+@keyframes bob{50%{transform:translate(-50%,-60%) scale(1.1)}}
+.post video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.shade{position:absolute;inset:0;background:linear-gradient(transparent 55%,rgba(0,0,0,.75))}
+.paused{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);font-size:64px;opacity:0;pointer-events:none;transition:opacity .2s}
+.post.pz .paused{opacity:.8}
+.top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;justify-content:center;align-items:center;gap:20px;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 8px;background:linear-gradient(rgba(0,0,0,.5),transparent)}
+.top .t{font-weight:700;font-size:16px;color:#ffffffa8;padding-bottom:4px;border-bottom:2px solid transparent}
+.top .t.on{color:#fff;border-color:#fff}
+#mute{position:absolute;right:14px;top:calc(12px + env(safe-area-inset-top,0px));font-size:20px}
+.hud{position:absolute;right:10px;bottom:24px;display:flex;flex-direction:column;align-items:center;gap:16px;z-index:3}
+.hud button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:30px;text-shadow:0 1px 4px #0008}
+.hud small{font-size:12px;font-weight:600}
+.hud .liked{color:var(--mg);animation:pop .35s}
+.hud .liked svg{fill:var(--mg)}
+@keyframes pop{40%{transform:scale(1.35)}}
+.av{position:relative;width:48px;height:48px;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;font-weight:800;font-size:18px;background:linear-gradient(135deg,var(--cy),var(--mg));margin-bottom:10px}
+.av i{position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);width:20px;height:20px;border-radius:50%;background:var(--mg);display:grid;place-items:center;font-size:13px;font-style:normal}
+.av.f i{background:#fff;color:#000}
+.disc{width:46px;height:46px;border-radius:50%;background:repeating-radial-gradient(#111 0 2px,#222 3px 4px);border:8px solid #222;display:grid;place-items:center;font-size:14px;animation:spin 4s linear infinite;animation-play-state:paused}
+.post.act .disc{animation-play-state:running}
+.disc svg{color:var(--cy)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.info{position:absolute;left:12px;right:84px;bottom:20px;z-index:3;text-shadow:0 1px 4px #000a}
+.info b{font-size:16px}
+.cap{margin:6px 0;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cap.open{display:block}
+.more{color:#ffffffb0;font-weight:700;margin-left:4px}
+.tick{display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;width:70%}
+.tick span{display:inline-block;animation:mq 9s linear infinite;padding-left:100%}
+@keyframes mq{to{transform:translateX(-100%)}}
+.burst{position:absolute;font-size:80px;color:var(--mg);pointer-events:none;z-index:6;animation:fly .9s ease-out forwards;filter:drop-shadow(0 0 10px var(--mg))}
+.burst svg{fill:var(--mg)}
+@keyframes fly{0%{transform:translate(-50%,-50%) scale(.3) rotate(var(--r));opacity:1}30%{transform:translate(-50%,-60%) scale(1.1) rotate(var(--r))}100%{transform:translate(-50%,-220%) scale(1.3) rotate(var(--r));opacity:0}}
+.empty{height:100%;display:grid;place-items:center;text-align:center;color:var(--mu);padding:40px}
+/* nav */
+nav{position:absolute;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:space-around;background:#000;border-top:1px solid #1f1f1f;padding:6px 0 env(safe-area-inset-bottom,0px);height:calc(56px + env(safe-area-inset-bottom,0px))}
+nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:22px;color:var(--mu);flex:1}
+nav button span{font-size:10px}
+nav button.on{color:#fff}
+nav .plus{flex:none;width:46px;height:32px;border-radius:9px;background:var(--cy);position:relative;font-size:22px;color:#000;display:grid;place-items:center;margin:0 6px;box-shadow:-3px 0 0 var(--cy),3px 0 0 var(--mg)}
+nav .plus::before{content:"";position:absolute;inset:0 3px;background:#fff;border-radius:7px;z-index:0}
+nav .plus svg{position:relative;z-index:1}
+/* sheets */
+.scrim{position:absolute;inset:0;background:#0009;z-index:30;opacity:0;pointer-events:none;transition:opacity .25s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:70%;background:#161616;border-radius:16px 16px 0 0;transform:translateY(100%);transition:transform .3s;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)}
+.scrim.on .sheet{transform:none}
+.sh{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;font-weight:700;border-bottom:1px solid #262626}
+.sb{overflow-y:auto;padding:12px 16px;flex:1}
+.cm{display:flex;gap:10px;margin-bottom:14px}
+.cm .a{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;background:linear-gradient(135deg,var(--mg),#6a11cb)}
+.cm .u{color:var(--mu);font-size:12px}
+.cm .rp{margin-top:10px}
+.cm.r{margin-left:42px;margin-bottom:10px}
+.cin{display:flex;gap:8px;padding:10px 16px;border-top:1px solid #262626}
+.cin input{flex:1;background:#262626;border:0;border-radius:20px;padding:10px 14px;color:#fff;outline:0}
+.cin button{color:var(--mg);font-weight:700}
+.shg{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:18px 16px}
+.shg button{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px}
+.shg i{width:48px;height:48px;border-radius:50%;background:#262626;display:grid;place-items:center;font-size:22px;font-style:normal}
+#toast{position:absolute;left:50%;top:20%;transform:translateX(-50%);background:#222;border:1px solid var(--cy);padding:8px 16px;border-radius:20px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.on{opacity:1}
+/* discover */
+.pad{padding:calc(12px + env(safe-area-inset-top,0px)) 12px 12px}
+.sbar{display:flex;align-items:center;gap:8px;background:#1c1c1c;border-radius:10px;padding:10px 12px;position:sticky;top:0;z-index:2}
+.sbar input{flex:1;background:none;border:0;color:#fff;outline:0;font-size:15px}
+.hs{display:flex;gap:8px;overflow-x:auto;padding:12px 0;scrollbar-width:none}
+.hs::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:8px 14px;border-radius:18px;background:#1c1c1c;border:1px solid #2a2a2a;white-space:nowrap}
+.chip.on{background:var(--mg);border-color:var(--mg)}
+.chip.h{color:var(--cy)}
+h3{margin:10px 0 4px;font-size:16px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:3px}
+.grid.g3{grid-template-columns:repeat(3,1fr)}
+.th{position:relative;aspect-ratio:3/4;background:linear-gradient(160deg,var(--a),var(--b));display:grid;place-items:center;font-size:40px;overflow:hidden;cursor:pointer}
+.th small{position:absolute;left:6px;bottom:5px;font-size:11px;font-weight:700;text-shadow:0 1px 3px #000}
+/* profile/inbox */
+.ph{text-align:center;padding:calc(20px + env(safe-area-inset-top,0px)) 16px 10px}
+.ph .av{width:92px;height:92px;font-size:36px;margin:0 auto 10px;border-width:3px}
+.st{display:flex;justify-content:center;gap:28px;margin:12px 0}
+.st b{display:block;font-size:17px}.st span{color:var(--mu);font-size:12px}
+.btn{display:inline-block;padding:9px 24px;border-radius:6px;background:var(--mg);font-weight:700;margin:4px}
+.btn.g{background:#262626}
+.tabs{display:flex;border-bottom:1px solid #222;position:sticky;top:0;background:#000;z-index:2}
+.tabs button{flex:1;padding:12px;color:var(--mu);font-size:18px;border-bottom:2px solid transparent}
+.tabs button.on{color:#fff;border-color:#fff}
+.row{display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid #111}
+.row .a{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:linear-gradient(135deg,var(--cy),#6a11cb);flex:none}
+/* create */
+#create{position:absolute;inset:0;z-index:40;background:#000;display:none}
+#create.on{display:block}
+.cam{position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,#2a2a3a,#050508);transition:filter .3s}
+.cam::after{content:"🙂";position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);font-size:110px;opacity:.5}
+.cam.rec{box-shadow:inset 0 0 0 3px #f00}
+.cx{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:14px;font-size:26px;z-index:2}
+.fl{position:absolute;right:12px;top:30%;display:flex;flex-direction:column;gap:14px;z-index:2}
+.fl button{width:48px;font-size:11px;text-align:center;text-shadow:0 1px 3px #000}
+.fl i{display:block;width:40px;height:40px;margin:0 auto 2px;border-radius:50%;border:2px solid #fff4;font-style:normal;font-size:18px;line-height:36px}
+.fl .on i{border-color:var(--cy);box-shadow:0 0 10px var(--cy)}
+.cb{position:absolute;bottom:calc(30px + env(safe-area-inset-bottom,0px));left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:12px;z-index:2}
+.rb{width:78px;height:78px;border-radius:50%;padding:5px;background:conic-gradient(var(--mg) calc(var(--p,0)*1%),#fff3 0);display:grid;place-items:center}
+.rb::before{content:"";width:100%;height:100%;border-radius:50%;background:#000;position:absolute}
+.rb{position:relative}
+.rb i{position:relative;width:100%;height:100%;border-radius:50%;background:#f21c3c;transition:all .2s}
+.rb.rec i{width:46%;height:46%;border-radius:8px}
+.cd{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);font-size:120px;font-weight:800;color:var(--cy);z-index:3;text-shadow:0 0 30px var(--cy)}
+.bars{display:flex;gap:3px;align-items:end;height:22px}
+.bars b{width:4px;background:var(--cy);border-radius:2px;animation:bar .6s ease-in-out infinite alternate}
+@keyframes bar{from{height:4px}to{height:22px}}
+#auth{position:absolute;inset:0;z-index:80;background:radial-gradient(circle at 15% 10%,#00f2fe22,transparent 45%),radial-gradient(circle at 85% 90%,#fe097933,transparent 45%),#000;display:none;overflow-y:auto;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+#auth.on{display:block}
+.ac{min-height:100%;display:flex;flex-direction:column;justify-content:center;padding:28px 24px}
+.logo{font-size:38px;font-weight:900;letter-spacing:2px;background:linear-gradient(90deg,var(--cy),var(--mg));-webkit-background-clip:text;background-clip:text;color:transparent;text-align:center}
+.sub{text-align:center;color:var(--mu);margin:6px 0 20px}
+.seg{display:flex;background:#1a1a1a;border-radius:10px;padding:4px;margin-bottom:16px}
+.seg button{flex:1;padding:10px;border-radius:7px;font-weight:700;color:var(--mu)}
+.seg button.on{background:#000;color:#fff;box-shadow:0 0 0 1px var(--cy)}
+#af label{display:block;font-size:12px;color:var(--mu);margin-bottom:12px}
+#af input:not([type=checkbox]){display:block;width:100%;margin-top:5px;background:#161616;border:1px solid #2a2a2a;border-radius:10px;padding:13px 14px;color:#fff;font-size:16px;outline:0}
+#af input:not([type=checkbox]):focus{border-color:var(--cy);box-shadow:0 0 0 3px #00f2fe22}
+#af label.sp{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+.err{min-height:20px;color:#ff5a7a;font-size:13px;margin-bottom:8px}
+.go{width:100%;padding:14px;border-radius:10px;font-weight:800;font-size:16px;background:linear-gradient(90deg,var(--cy),var(--mg));color:#000}
+.sw{text-align:center;margin-top:18px;color:var(--mu)}
+.sw a{color:var(--cy);font-weight:700;cursor:pointer}
+.fine{text-align:center;font-size:11px;color:#666;margin-top:18px}
+.rl{color:var(--cy);margin-left:8px;cursor:pointer;font-size:12px}
+.bars b:nth-child(2n){animation-delay:.2s}.bars b:nth-child(3n){animation-delay:.4s}
+.cam video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.cam.live::after{display:none}
+.up{position:absolute;inset:0;display:flex;flex-direction:column;gap:10px;padding:calc(56px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));overflow-y:auto;background:#000}
+.up video{width:100%;max-height:42%;object-fit:contain;background:#111;border-radius:12px}
+.up textarea,.up select{width:100%;background:#161616;border:1px solid #2a2a2a;border-radius:10px;padding:12px;color:#fff;font:inherit;outline:0}
+.up textarea{min-height:80px;resize:none}
+.pg{height:6px;background:#222;border-radius:3px;overflow:hidden}.pg b{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cy),var(--mg))}
+.go:disabled{opacity:.5}
+</style></head>
+<body>
+<div id="app">
+  <section class="view on" id="home">
+    <div class="top"><button class="t on" data-tab="fy">For You</button><button class="t" data-tab="fl">Following</button></div>
+    <button id="mute" aria-label="Mute"></button>
+    <div id="feed"></div>
+  </section>
+  <section class="view" id="discover"></section>
+  <section class="view" id="inbox"></section>
+  <section class="view" id="profile"></section>
+  <nav id="nav"></nav>
+  <div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
+  <div id="create"></div>
+  <div id="auth"></div>
+  <div id="toast"></div>
+</div>
+<script>
+/* ============ config/mock.js : mock state configuration ============ */
+// To use real video, set `src` to an MP4 you host. Published pages block remote media, so default is animated stand-ins.
+const POSTS=[
+ {id:"p1",u:"neon.nomad",e:"🌃",a:"#0f2027",b:"#2c5364",cap:"Midnight drive through the city lights. Turn the volume up and let the neon do the talking. #nightdrive #citylights #vibes",m:"Neon Nights – Synthwave Loop",l:128400,c:"Travel"},
+ {id:"p2",u:"chef.amani",e:"🍛",a:"#f12711",b:"#f5af19",cap:"Pilau in 10 minutes? Yes, it works. Save this for Sunday! #recipe #pilau #foodtok",m:"Kitchen Beats – Amani Mix",l:56200,c:"Food"},
+ {id:"p3",u:"zuri.dance",e:"💃",a:"#8e2de2",b:"#fe0979",cap:"New choreography dropped. Tag a friend who needs to learn this one. #dance #bongoflava #challenge",m:"Bongo Heat – Zuri Remix",l:402900,c:"Dance"},
+ {id:"p4",u:"mlima.hike",e:"🏔️",a:"#134e5e",b:"#71b280",cap:"Sunrise above the clouds after a 5 hour climb. Worth every step. #hiking #kilimanjaro #nature",m:"Summit – Ambient Peaks",l:88100,c:"Travel"},
+ {id:"p5",u:"dev.frex",e:"💻",a:"#00c6ff",b:"#0072ff",cap:"Shipped a full app in a single HTML file. No build step, no stress. #coding #webdev #buildinpublic",m:"Lo-fi Compile – Code Beats",l:23700,c:"Tech"},
+ {id:"p6",u:"paka.pets",e:"🐱",a:"#ff9a9e",b:"#fad0c4",cap:"He thinks he is a lion. He is not. #cats #funny #pets",m:"Meow Remix – Tiny Lion",l:731500,c:"Pets"},
+ {id:"p7",u:"fit.neema",e:"🏋️",a:"#232526",b:"#fe0979",cap:"15 minute home workout, zero equipment. Do it with me. #fitness #workout #motivation",m:"Pump Up – Rhythm Lab",l:41900,c:"Fitness"},
+ {id:"p8",u:"gari.shots",e:"🚗",a:"#42275a",b:"#734b6d",cap:"Restoring a 1989 Land Cruiser, part 4: the engine finally starts. #cars #restoration #diy",m:"Engine Roar – Garage Radio",l:67300,c:"Cars"}];
+const TAGS=["#nightdrive","#pilau","#bongoflava","#webdev","#cats","#fitness","#hiking","#foodtok","#challenge","#diy"];
+const CATS=["All","Travel","Food","Dance","Tech","Pets","Fitness","Cars"];
+const SEED_COMMENTS=[{u:"amina_k",t:"This is exactly what I needed today 😍",r:[{u:"owner",t:"Thank you so much! 🙏"},{u:"juma.t",t:"Same here!"}]},{u:"kelvin255",t:"Wait, how did you do that?? Part 2 please",r:[]},{u:"mama.lulu",t:"Sent this to my whole family 😂",r:[{u:"amina_k",t:"Haha me too"}]},{u:"techbro",t:"Quality content, followed.",r:[]}];
+const FILTERS=[["Normal","none","😀"],["Neon","hue-rotate(160deg) saturate(2)","🌈"],["Warm","sepia(.6) saturate(1.5)","🔥"],["Mono","grayscale(1) contrast(1.2)","🖤"],["Glow","brightness(1.3) contrast(1.1)","✨"]];
+const INBOX=[["amina_k","liked your video","2m"],["kelvin255","started following you","18m"],["mama.lulu","commented: So proud of you!","1h"],["neon.nomad","mentioned you in a comment","3h"],["System","Your video reached 1,000 views 🎉","1d"]];
+
+/* ============ hooks/useStore.js : persisted state ============ */
+let KEY="codester.prefs";
+const Store=(()=>{let s={likes:{},follows:{},comments:{},muted:true};
+ try{Object.assign(s,JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
+ return{get:()=>s,save(){try{localStorage.setItem(KEY,JSON.stringify({muted:s.muted}))}catch(e){}}}})();
+const S=Store.get();
+const $=(q,r=document)=>r.querySelector(q);
+const fmt=n=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?(n/1e3).toFixed(1)+"K":""+n;
+const ic=(n,x="")=>`<svg viewBox="0 0 24 24" ${x}>${{
+ home:'<path d="M3 11l9-8 9 8v10h-6v-7H9v7H3z"/>',search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5"/>',plus:'<path d="M12 5v14M5 12h14"/>',
+ inbox:'<path d="M4 4h16v12H8l-4 4z"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+ heart:'<path d="M12 21s-8-5-9.5-10A5 5 0 0112 6a5 5 0 019.5 5C20 16 12 21 12 21z"/>',msg:'<path d="M21 12a8 8 0 01-11.5 7L3 21l2-5.5A8 8 0 1121 12z"/>',
+ share:'<path d="M4 12v7h16v-7M12 3v12M7 8l5-5 5 5"/>',vol:'<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 8a5 5 0 010 8"/>',mute:'<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 9l4 6M21 9l-4 6"/>',
+ x:'<path d="M5 5l14 14M19 5L5 19"/>',music:'<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>',
+ grid:'<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>',play:'<path d="M7 4l13 8-13 8z"/>'}[n]}</svg>`;
+let toastT;const toast=t=>{const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove("on"),1600)};
+const byId=id=>POSTS.find(p=>p.id===id);
+const thumb=p=>`<div class="th" data-open="${p.id}" style="--a:${p.a};--b:${p.b}">${p.e}<small>▶ ${fmt(p.l)}</small></div>`;
+
+/* ============ components/Feed.js ============ */
+let tab="fy",cycle=0,active=null,feedItems=[];
+const feed=$("#feed");
+const list=()=>tab==="fl"?POSTS.filter(p=>S.follows[p.u]):POSTS;
+function postEl(p,n){
+ const d=document.createElement("div");d.className="post";d.dataset.id=p.id;d.dataset.n=n;
+ d.innerHTML=`<div class="bg" data-e="${p.e}" style="--a:${p.a};--b:${p.b}"></div><div class="shade"></div><div class="paused">${ic("play","fill='#fff'")}</div>
+ <div class="hud">
+  <div class="av" data-act="follow">${p.u[0].toUpperCase()}<i>+</i></div>
+  <button data-act="like">${ic("heart")}<small class="lc"></small></button>
+  <button data-act="cm">${ic("msg")}<small class="cc"></small></button>
+  <button data-act="share">${ic("share")}<small>Share</small></button>
+  <div class="disc">${ic("music")}</div></div>
+ <div class="info"><b>@${p.u}</b><div class="cap">${p.cap}</div><div class="tick">${ic("music")}<span>${p.m} · original sound</span></div></div>`;
+ sync(d);return d}
+function sync(d){const p=byId(d.dataset.id),liked=!!S.likes[p.id],f=!!S.follows[p.u];
+ const lb=$('[data-act="like"]',d);lb.classList.toggle("liked",liked);$(".lc",d).textContent=fmt(p.l+(liked?1:0));
+ $(".cc",d).textContent=fmt(p.cc||0);
+ const av=$(".av",d);av.classList.toggle("f",f);$("i",av).textContent=f?"✓":"+";
+ const cap=$(".cap",d);if(!cap.dataset.m){cap.dataset.m=1;if(p.cap.length>70){const m=document.createElement("span");m.className="more";m.dataset.act="more";m.textContent="more";cap.after(m)}}}
+function fillFeed(){feed.innerHTML="";const l=list();
+ if(!l.length){feed.innerHTML=`<div class="empty"><div>Follow creators on the For You tab<br>and their videos will show up here.</div></div>`;return}
+ appendBatch();feed.scrollTop=0}
+function appendBatch(){list().forEach((p,i)=>{const e=postEl(p,cycle*100+i);feed.appendChild(e);io.observe(e)});cycle++}
+// lazy mount: only the active slide holds a <video>/animation; others are torn down
+const io=new IntersectionObserver(es=>es.forEach(en=>{
+ const el=en.target;
+ if(en.isIntersecting&&en.intersectionRatio>.6){setActive(el)}
+ else if(el===active){}
+}),{root:feed,threshold:[.6]});
+function setActive(el){
+ if(active&&active!==el)deactivate(active);
+ active=el;el.classList.add("act");mountVideo(el);
+ if(feed.lastElementChild&&el===feed.children[feed.children.length-2]||el===feed.lastElementChild)appendBatch();
+ // trim old slides to bound memory
+ while(feed.children.length>40){feed.removeChild(feed.firstElementChild);feed.scrollTop-=feed.clientHeight}}
+function deactivate(el){el.classList.remove("act","pz");const v=$("video",el);if(v){v.pause();v.removeAttribute("src");v.load();v.remove()}}
+function mountVideo(el){const p=byId(el.dataset.id);if(!p.src||$("video",el))return;
+ const v=document.createElement("video");v.src=p.src;v.loop=true;v.muted=S.muted;v.playsInline=true;v.preload="metadata";
+ v.onerror=()=>v.remove();$(".bg",el).after(v);v.play().catch(()=>{})}
+// gestures: single tap = pause/play, double tap = heart burst + like
+let lastTap=0,tapT;
+feed.addEventListener("click",e=>{
+ const post=e.target.closest(".post");if(!post)return;
+ const a=e.target.closest("[data-act]");
+ if(a){const act=a.dataset.act,p=byId(post.dataset.id);
+  if(act==="like")toggleLike(p.id,post);
+  if(act==="follow"){if(p.u===ME)return toast("That is you");S.follows[p.u]?delete S.follows[p.u]:S.follows[p.u]=1;Store.save();api("PUT","/follows/"+encodeURIComponent(p.u),{on:!!S.follows[p.u]}).catch(e=>toast(e.message));feed.querySelectorAll(".post").forEach(sync);toast(S.follows[p.u]?"Following @"+p.u:"Unfollowed")}
+  if(act==="cm")openComments(p.id);
+  if(act==="share")openShare(p);
+  if(act==="more"){const c=$(".cap",post),o=c.classList.toggle("open");a.textContent=o?"less":"more"}
+  return}
+ const now=Date.now(),r=post.getBoundingClientRect();
+ if(now-lastTap<300){clearTimeout(tapT);burst(post,e.clientX-r.left,e.clientY-r.top);if(!S.likes[post.dataset.id])toggleLike(post.dataset.id,post)}
+ else tapT=setTimeout(()=>{post.classList.toggle("pz");const v=$("video",post);if(v)post.classList.contains("pz")?v.pause():v.play();else $(".bg",post).style.animationPlayState=post.classList.contains("pz")?"paused":"running"},300);
+ lastTap=now});
+function burst(post,x,y){const b=document.createElement("div");b.className="burst";b.innerHTML=ic("heart");b.style.cssText=`left:${x}px;top:${y}px;--r:${Math.round(Math.random()*40-20)}deg`;post.appendChild(b);setTimeout(()=>b.remove(),900)}
+function toggleLike(id,post){S.likes[id]?delete S.likes[id]:S.likes[id]=1;Store.save();api("PUT","/posts/"+encodeURIComponent(id)+"/like",{on:!!S.likes[id]}).catch(e=>toast(e.message));feed.querySelectorAll(`.post[data-id="${id}"]`).forEach(sync)}
+$("#mute").onclick=()=>{S.muted=!S.muted;Store.save();paintMute();const v=$("video",active||document);if(v)v.muted=S.muted;toast(S.muted?"Sound off":"Sound on")};
+const paintMute=()=>$("#mute").innerHTML=ic(S.muted?"mute":"vol");
+document.querySelectorAll(".top .t").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll(".top .t").forEach(x=>x.classList.toggle("on",x===b));active=null;cycle=0;fillFeed()});
+
+/* ============ components/Sheets.js : comments + share ============ */
+const scrim=$("#scrim"),sheet=$("#sheet");
+let unsubC=null;const closeSheet=()=>{scrim.classList.remove("on");if(unsubC){unsubC();unsubC=null}};
+scrim.addEventListener("click",e=>{if(e.target===scrim)closeSheet()});
+function openCommentsLocal(id){
+ const render=()=>{const mine=(S.comments[id]||[]).map(t=>({u:"you",t,r:[]}));
+  const all=[...mine,...SEED_COMMENTS];
+  $(".sb",sheet).innerHTML=all.map(c=>`<div class="cm"><div class="a">${c.u[0].toUpperCase()}</div><div><div class="u">@${c.u}</div>${c.t}${c.r.map(r=>`<div class="cm r rp"><div class="a">${r.u[0].toUpperCase()}</div><div><div class="u">@${r.u}</div>${r.t}</div></div>`).join("")}</div></div>`).join("");
+  $("h4",sheet).textContent=all.length+" comments"};
+ sheet.innerHTML=`<div class="sh"><h4></h4><button data-x>${ic("x")}</button></div><div class="sb"></div><div class="cin"><input placeholder="Add comment…" maxlength="200"><button>Post</button></div>`;
+ render();scrim.classList.add("on");
+ $("[data-x]",sheet).onclick=closeSheet;
+ const inp=$("input",sheet),post=()=>{const t=inp.value.trim();if(!t)return;(S.comments[id]=S.comments[id]||[]).unshift(t);Store.save();inp.value="";render();feed.querySelectorAll(`.post[data-id="${id}"]`).forEach(sync)};
+ $(".cin button",sheet).onclick=post;inp.onkeydown=e=>{if(e.key==="Enter")post()}}
+function openShare(p){
+ const o=[["🔗","Copy link"],["💬","WhatsApp"],["✉️","Messages"],["📸","Stories"],["⬇️","Save"],["🚩","Report"],["🔕","Not interested"],["👥","Send to friend"]];
+ sheet.innerHTML=`<div class="sh"><span>Share to</span><button data-x>${ic("x")}</button></div><div class="shg">${o.map(x=>`<button data-s="${x[1]}"><i>${x[0]}</i>${x[1]}</button>`).join("")}</div>`;
+ scrim.classList.add("on");$("[data-x]",sheet).onclick=closeSheet;
+ sheet.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{closeSheet();toast(b.dataset.s==="Copy link"?"Link copied (mock)":b.dataset.s+" · mock action")})}
+
+/* ============ views/Discover.js ============ */
+let cat="All",q="";
+function drawDiscover(){const v=$("#discover");
+ if(!v.dataset.init){v.dataset.init=1;v.innerHTML=`<div class="pad"><div class="sbar">${ic("search")}<input id="q" placeholder="Search videos, creators, #tags"></div>
+ <h3>Trending hashtags</h3><div class="hs" id="tg"></div><div class="hs" id="ct"></div><div class="grid" id="gd"></div></div>`;
+ $("#q").oninput=e=>{q=e.target.value.toLowerCase();grid()};
+ $("#tg").innerHTML=TAGS.map(t=>`<div class="chip h" data-tag="${t}">${t}</div>`).join("");
+ $("#tg").onclick=e=>{const t=e.target.dataset.tag;if(t){$("#q").value=t;q=t;grid()}};
+ $("#ct").onclick=e=>{if(e.target.dataset.c){cat=e.target.dataset.c;chips();grid()}};
+ $("#gd").onclick=e=>{const t=e.target.closest("[data-open]");if(t)playFrom(t.dataset.open)};chips()}
+ grid()}
+const chips=()=>$("#ct").innerHTML=CATS.map(c=>`<div class="chip ${c===cat?"on":""}" data-c="${c}">${c}</div>`).join("");
+function grid(){const l=POSTS.filter(p=>(cat==="All"||p.c===cat)&&(!q||(p.cap+p.u+p.m).toLowerCase().includes(q)));
+ $("#gd").innerHTML=l.length?[...l,...l].map(thumb).join(""):`<div class="empty" style="grid-column:1/-1;padding:60px 0">No results</div>`}
+function playFrom(id){go("home");tab="fy";document.querySelectorAll(".top .t").forEach(x=>x.classList.toggle("on",x.dataset.tab==="fy"));active=null;cycle=0;fillFeed();
+ const el=feed.querySelector(`.post[data-id="${id}"]`);if(el)feed.scrollTop=el.offsetTop}
+
+/* ============ views/Inbox.js ============ */
+function drawInbox(){$("#inbox").innerHTML=`<div class="pad"><h3 style="font-size:18px">Inbox</h3></div>`+INBOX.map(r=>`<div class="row"><div class="a">${r[0][0].toUpperCase()}</div><div style="flex:1"><b>${r[0]}</b><div style="color:var(--mu)">${r[1]}</div></div><small style="color:var(--mu)">${r[2]}</small></div>`).join("")}
+
+/* ============ views/Profile.js ============ */
+let ptab="posts";
+function drawProfile(){const mineP=POSTS.filter(p=>p.u===ME),likedP=POSTS.filter(p=>S.likes[p.id]),fc=Object.keys(S.follows).length;
+ const body=ptab==="posts"?(mineP.length?`<div class="grid g3">${mineP.map(thumb).join("")}</div>`:`<div class="empty">No videos yet. Tap + to create one.</div>`):
+  ptab==="liked"?(likedP.length?`<div class="grid g3">${likedP.map(thumb).join("")}</div>`:`<div class="empty">Videos you like will appear here.</div>`):
+  `<div class="empty"><div style="font-size:40px">${ic("lock")}</div><p>Only you can see these videos.</p></div>`;
+ $("#profile").innerHTML=`<div class="ph"><div class="av">${ME[0].toUpperCase()}</div><b style="font-size:17px">@${ME}</b><div class="cl" style="font-size:12px;color:var(--cy);margin-top:4px"></div>
+ <div class="st"><div><b>${fc}</b><span>Following</span></div><div><b>${fmt(MY.followers||0)}</b><span>Followers</span></div><div><b>${fmt(MY.likesReceived||0)}</b><span>Likes</span></div></div>
+ <span class="btn">Edit profile</span><span class="btn g" id="lo">Log out</span><p style="margin-top:10px;color:#ccc">New on CODESTER ✨<br>Tap + to share your first video</p></div>
+ <div class="tabs">${[["posts","grid"],["liked","heart"],["private","lock"]].map(t=>`<button class="${ptab===t[0]?"on":""}" data-p="${t[0]}">${ic(t[1])}</button>`).join("")}</div>${body}`;
+ setCloud(cloud);$("#profile").onclick=e=>{if(e.target.id==="lo"){logout();return}const b=e.target.closest("[data-p]");if(b){ptab=b.dataset.p;drawProfile();return}const t=e.target.closest("[data-open]");if(t)playFrom(t.dataset.open)}}
+
+/* ============ views/Create.js : camera recording + upload ============ */
+const MAXS=30,MAX_MB=100;
+let fi=0,rec=null,stream=null,mr=null,chunks=[],fin=false;
+function openCreate(){const c=$("#create");c.classList.add("on");
+ c.innerHTML=`<div class="cam" id="cam"><video id="pv" muted playsinline></video></div><button class="cx" id="cx" aria-label="Close">${ic("x")}</button>
+ <div class="fl" id="fl">${FILTERS.map((f,i)=>`<button data-f="${i}" class="${i===fi?"on":""}"><i>${f[2]}</i>${f[0]}</button>`).join("")}</div>
+ <div class="cb"><div class="bars" id="bars" style="visibility:hidden">${"<b></b>".repeat(9)}</div><div id="tm" style="font-weight:700">0:00 / 0:${MAXS}</div>
+ <button class="rb" id="rb" aria-label="Record"><i></i></button>
+ <label class="btn g" style="cursor:pointer">\u2B06 Upload video<input id="vf" type="file" accept="video/*" hidden></label></div>`;
+ $("#cam").style.filter=FILTERS[fi][1];
+ $("#cx").onclick=closeCreate;
+ $("#fl").onclick=e=>{const b=e.target.closest("[data-f]");if(!b)return;fi=+b.dataset.f;$("#cam").style.filter=FILTERS[fi][1];$("#fl").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b))};
+ $("#rb").onclick=()=>rec?stopRec(true):countdown();
+ $("#vf").onchange=e=>{const f=e.target.files[0];if(f)openUpload(f)};
+ camStart()}
+async function camStart(){
+ try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:true});
+  const v=$("#pv");if(!v){stream.getTracks().forEach(t=>t.stop());stream=null;return}
+  v.srcObject=stream;v.play().catch(()=>{});$("#cam").classList.add("live")}
+ catch(e){stream=null;toast("Camera unavailable. You can still upload a video.")}}
+function countdown(){let n=3;const d=document.createElement("div");d.className="cd";d.textContent=n;$("#create").appendChild(d);
+ rec={cd:setInterval(()=>{n--;if(n>0)d.textContent=n;else{clearInterval(rec.cd);d.remove();startRec()}},800)}}
+function startRec(){const t0=Date.now();$("#rb").classList.add("rec");$("#cam").classList.add("rec");$("#bars").style.visibility="visible";
+ mr=null;
+ if(stream&&window.MediaRecorder){chunks=[];try{mr=new MediaRecorder(stream)}catch(e){mr=null}
+  if(mr){const m=mr;m.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+   m.onstop=()=>{if(!fin)return;const type=(m.mimeType||"video/webm").split(";")[0];
+    openUpload(new File([new Blob(chunks,{type})],"recording"+(type==="video/mp4"?".mp4":".webm"),{type}))};m.start()}}
+ rec.t=setInterval(()=>{const s=(Date.now()-t0)/1000;$("#rb").style.setProperty("--p",s/MAXS*100);$("#tm").textContent=`0:${String(Math.floor(s)).padStart(2,"0")} / 0:${MAXS}`;if(s>=MAXS)stopRec(true)},100)}
+function stopRec(done){if(!rec)return;clearInterval(rec.cd);clearInterval(rec.t);rec=null;const cd=$(".cd");cd&&cd.remove();
+ const rb=$("#rb"),cm=$("#cam"),b=$("#bars");rb&&rb.classList.remove("rec");cm&&cm.classList.remove("rec");b&&(b.style.visibility="hidden");
+ if(mr&&mr.state!=="inactive"){fin=!!done;mr.stop()}else if(done)toast("Camera not available. Use Upload instead.")}
+function closeCreate(){fin=false;stopRec(false);if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}mr=null;$("#create").classList.remove("on");$("#create").innerHTML=""}
+function openUpload(file){
+ if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+ if(!/^video\//.test(file.type))return toast("Please choose a video file");
+ if(file.size>MAX_MB*1048576)return toast("Video too large (max "+MAX_MB+" MB)");
+ const url=URL.createObjectURL(file);
+ $("#create").innerHTML=`<div class="up"><button class="cx" id="cx" aria-label="Close">${ic("x")}</button><video src="${url}" controls playsinline muted loop></video>
+  <textarea id="uc" maxlength="300" placeholder="Describe your video\u2026 #hashtags"></textarea>
+  <select id="ug">${CATS.slice(1).map(c=>`<option>${c}</option>`).join("")}</select>
+  <div class="pg"><b id="pb"></b></div><button class="go" id="up">Post video</button></div>`;
+ $("#cx").onclick=()=>{URL.revokeObjectURL(url);closeCreate()};
+ $("#up").onclick=()=>{const btn=$("#up");btn.disabled=true;btn.textContent="Uploading\u2026";
+  const fd=new FormData();fd.append("caption",$("#uc").value);fd.append("category",$("#ug").value);
+  fd.append("video",file,file.name);
+  const x=new XMLHttpRequest();x.open("POST",API+"/videos");x.setRequestHeader("Authorization","Bearer "+TOKEN);
+  x.upload.onprogress=e=>{if(e.lengthComputable)$("#pb").style.width=(e.loaded/e.total*100)+"%"};
+  x.onload=async()=>{let j={};try{j=JSON.parse(x.responseText)}catch(e){}
+   if(x.status<300){URL.revokeObjectURL(url);closeCreate();toast("Video posted!");await loadPosts();active=null;cycle=0;fillFeed();ptab="posts";go("profile")}
+   else{btn.disabled=false;btn.textContent="Post video";toast(j.error||"Upload failed")}};
+  x.onerror=()=>{btn.disabled=false;btn.textContent="Post video";toast("Network error. Try again.")};
+  x.send(fd)}}
+
+/* ============ views/Auth.js : login + registration (client-side demo) ============ */
+const LS={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const sha=async s=>{try{const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}catch(e){return btoa(unescape(encodeURIComponent(s)))}};
+let ME=null,mode="login";
+function drawAuth(err=""){
+ const a=$("#auth"),su=mode==="signup";a.classList.add("on");
+ a.innerHTML=`<div class="ac"><div class="logo">CODESTER</div><p class="sub">${su?"Create your account to start watching":"Log in to continue"}</p>
+ <div class="seg"><button data-m="login" class="${su?"":"on"}">Log in</button><button data-m="signup" class="${su?"on":""}">Sign up</button></div>
+ <form id="af" novalidate>
+ <label>Username<input name="u" autocomplete="username" autocapitalize="none" maxlength="20"></label>
+ ${su?`<label>Email<input name="e" type="email" autocomplete="email"></label>`:""}
+ <label>Password<input name="p" type="password" autocomplete="${su?"new-password":"current-password"}"></label>
+ ${su?`<label>Confirm password<input name="c" type="password" autocomplete="new-password"></label>`:""}
+ <label class="sp"><input type="checkbox" id="sp"> Show password</label>
+ <div id="aerr" class="err">${err}</div>
+ <button class="go" type="submit">${su?"Create account":"Log in"}</button></form>
+ <p class="sw">${su?"Already have an account?":"No account yet?"} <a data-m="${su?"login":"signup"}">${su?"Log in":"Sign up"}</a></p>
+ <p class="fine"><span class="cl"></span><br>Your account is stored securely on the CODESTER server.</p></div>`;
+ setCloud(cloud);a.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{mode=b.dataset.m;drawAuth()});
+ $("#sp").onchange=e=>a.querySelectorAll("input[name=p],input[name=c]").forEach(i=>i.type=e.target.checked?"text":"password");
+  $("#af").onsubmit=async e=>{e.preventDefault();
+  const f=new FormData(e.target),u=(f.get("u")||"").trim().toLowerCase(),p=f.get("p")||"",fail=m=>{$("#aerr").textContent=m},btn=$(".go",a);
+  if(!/^[a-z0-9._]{3,20}$/.test(u))return fail("Username: 3\u201320 letters, numbers, dots or underscores.");
+  const body={username:u,password:p};
+  if(su){const em=(f.get("e")||"").trim().toLowerCase();
+   if(!/^\S+@\S+\.\S+$/.test(em))return fail("Enter a valid email address.");
+   if(p.length<6)return fail("Password must be at least 6 characters.");
+   if(p!==f.get("c"))return fail("Passwords do not match.");body.email=em}
+  btn.disabled=true;fail("");
+  try{const r=await api("POST",su?"/auth/register":"/auth/login",body);TOKEN=r.token;LS.set("codester.token",TOKEN);await enterApp(r.user.username,su)}
+  catch(err){fail(err.message)}finally{btn.disabled=false}}}
+
+/* ============ api/client.js : talks to the Node/Express + PostgreSQL backend ============ */
+const API="/api";let TOKEN=LS.get("codester.token",null),MY={};
+async function api(method,path,body){
+ const h={};if(TOKEN)h.Authorization="Bearer "+TOKEN;if(body)h["Content-Type"]="application/json";
+ let r;try{r=await fetch(API+path,{method,headers:h,body:body?JSON.stringify(body):undefined})}catch(e){setCloud("off");throw new Error("Cannot reach the server. Check your connection.")}
+ setCloud("on");const j=await r.json().catch(()=>({}));
+ if(!r.ok){const e=new Error(j.error||"Request failed");e.status=r.status;throw e}return j}
+let cloud="connecting";const setCloud=s=>{cloud=s;document.querySelectorAll(".cl").forEach(e=>e.textContent=s==="on"?"\u2601 Connected to CODESTER cloud":s==="off"?"\u2601 Server unreachable":"\u2601 Connecting\u2026")};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ago=d=>{const s=(Date.now()-new Date(d))/1e3;return s<60?"now":s<3600?Math.floor(s/60)+"m":s<86400?Math.floor(s/3600)+"h":Math.floor(s/86400)+"d"};
+async function loadPosts(){const rows=await api("GET","/feed");POSTS.length=0;POSTS.push(...rows)}
+async function enterApp(u,fresh){
+ ME=u;S.likes={};S.follows={};S.comments={};
+ try{const st=await api("GET","/state");S.likes=st.likes;S.follows=st.follows;MY=st;await loadPosts()}
+ catch(e){if(e.status===401){LS.del("codester.token");TOKEN=null;ME=null;mode="login";go("home");return drawAuth("Session expired. Please log in again.")}toast(e.message)}
+ $("#auth").classList.remove("on");$("#auth").innerHTML="";
+ paintMute();active=null;cycle=0;tab="fy";document.querySelectorAll(".top .t").forEach(x=>x.classList.toggle("on",x.dataset.tab==="fy"));fillFeed();go("home");
+ toast(fresh?"Welcome to CODESTER, @"+u+"!":"Welcome back, @"+u)}
+function logout(){
+ closeSheet();closeCreate();if(active){deactivate(active);active=null}
+ LS.del("codester.token");TOKEN=null;ME=null;MY={};feed.innerHTML="";mode="login";go("home");drawAuth()}
+
+/* ---- shared comments (server-side, threaded one level, refreshed every 6 s while open) ---- */
+let replyTo=null;
+function openComments(id){
+ const p=byId(id);replyTo=null;
+ sheet.innerHTML=`<div class="sh"><h4>Comments</h4><button data-x>${ic("x")}</button></div><div class="sb">Loading\u2026</div><div class="cin"><input placeholder="Add comment\u2026" maxlength="200"><button>Post</button></div>`;
+ scrim.classList.add("on");$("[data-x]",sheet).onclick=closeSheet;
+ const sb=$(".sb",sheet),inp=$("input",sheet);
+ const item=(c,r)=>`<div class="cm${r?" r":""}"><div class="a">${esc(c.username[0]).toUpperCase()}</div><div><div class="u">@${esc(c.username)} \u00B7 ${ago(c.created_at)}</div>${esc(c.body)}${r?"":` <a class="rl" data-r="${c.id}" data-n="${esc(c.username)}">Reply</a>`}</div></div>`;
+ const draw=rows=>{const top=rows.filter(c=>!c.parent_id);
+  sb.innerHTML=top.length?top.map(c=>item(c,0)+rows.filter(r=>r.parent_id===c.id).map(r=>item(r,1)).join("")).join(""):`<div class="empty" style="height:120px">No comments yet. Be the first!</div>`;
+  $("h4",sheet).textContent=rows.length+" comments";p.cc=rows.length;feed.querySelectorAll(`.post[data-id="${id}"]`).forEach(sync)};
+ const load=async()=>{try{draw(await api("GET","/posts/"+encodeURIComponent(id)+"/comments"))}catch(e){sb.textContent="Could not load comments."}};
+ load();const t=setInterval(load,6000);unsubC=()=>clearInterval(t);
+ sb.onclick=e=>{const r=e.target.closest("[data-r]");if(r){replyTo=+r.dataset.r;inp.placeholder="Reply to @"+r.dataset.n+"\u2026";inp.focus()}};
+ const post=async()=>{const text=inp.value.trim();if(!text)return;inp.value="";
+  try{await api("POST","/posts/"+encodeURIComponent(id)+"/comments",{text,parent:replyTo});replyTo=null;inp.placeholder="Add comment\u2026";load()}catch(e){toast(e.message)}};
+ $(".cin button",sheet).onclick=post;inp.onkeydown=e=>{if(e.key==="Enter")post()}}
+
+/* ============ app shell / router ============ */
+const NAV=[["home","Home","home"],["discover","Discover","search"],["create","","plus"],["inbox","Inbox","inbox"],["profile","Profile","user"]];
+$("#nav").innerHTML=NAV.map(n=>n[0]==="create"?`<button class="plus" data-n="create" aria-label="Create">${ic("plus")}</button>`:`<button data-n="${n[0]}">${ic(n[2])}<span>${n[1]}</span></button>`).join("");
+let cur="home";
+function go(v){if(v==="create"){openCreate();return}
+ cur=v;document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id===v));
+ $("#nav").querySelectorAll("[data-n]").forEach(b=>b.classList.toggle("on",b.dataset.n===v));
+ if(v!=="home"&&active){const vd=$("video",active);vd&&vd.pause()}else if(active){const vd=$("video",active);vd&&vd.play().catch(()=>{})}
+ if(v==="discover")drawDiscover();if(v==="inbox")drawInbox();if(v==="profile")drawProfile()}
+$("#nav").onclick=e=>{const b=e.target.closest("[data-n]");if(b)go(b.dataset.n)};
+document.addEventListener("visibilitychange",()=>{const v=active&&$("video",active);if(v)document.hidden?v.pause():cur==="home"&&v.play().catch(()=>{})});
+paintMute();
+(async()=>{
+ if(TOKEN){try{const r=await api("GET","/me");return enterApp(r.username)}catch(e){if(e.status===401){TOKEN=null;LS.del("codester.token")}}}
+ go("home");drawAuth();
+ try{const r=await fetch(API+"/health");setCloud(r.ok?"on":"off")}catch(e){setCloud("off")}})();
+</script>
+</body></html>
