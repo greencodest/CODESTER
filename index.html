@@ -155,6 +155,8 @@ h3{margin:10px 0 4px;font-size:16px}
 .up textarea{min-height:80px;resize:none}
 .pg{height:6px;background:#222;border-radius:3px;overflow:hidden}.pg b{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cy),var(--mg))}
 .go:disabled{opacity:.5}
+.vt{width:1em;height:1em;vertical-align:-2px;margin-left:4px;stroke:none;flex:none}.vt circle{stroke:none}
+.vn{color:var(--mu);font-size:12px;margin-top:2px}
 </style></head>
 <body>
 <div id="app">
@@ -207,6 +209,7 @@ const ic=(n,x="")=>`<svg viewBox="0 0 24 24" ${x}>${{
  grid:'<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>',play:'<path d="M7 4l13 8-13 8z"/>'}[n]}</svg>`;
 let toastT;const toast=t=>{const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove("on"),1600)};
 const byId=id=>POSTS.find(p=>p.id===id);
+const TICK=`<svg class="vt" viewBox="0 0 24 24" aria-label="Verified"><circle cx="12" cy="12" r="11" fill="#20a4f3"/><path d="M7 12.5l3.2 3.2L17 9" stroke="#fff" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const thumb=p=>`<div class="th" data-open="${p.id}" style="--a:${p.a};--b:${p.b}">${p.e}<small>▶ ${fmt(p.l)}</small></div>`;
 
 /* ============ components/Feed.js ============ */
@@ -222,7 +225,7 @@ function postEl(p,n){
   <button data-act="cm">${ic("msg")}<small class="cc"></small></button>
   <button data-act="share">${ic("share")}<small>Share</small></button>
   <div class="disc">${ic("music")}</div></div>
- <div class="info"><b>@${p.u}</b><div class="cap">${p.cap}</div><div class="tick">${ic("music")}<span>${p.m} · original sound</span></div></div>`;
+ <div class="info"><b>@${p.u}${p.v?TICK:""}</b><div class="cap">${p.cap}</div><div class="tick">${ic("music")}<span>${p.m} · original sound</span></div></div>`;
  sync(d);return d}
 function sync(d){const p=byId(d.dataset.id),liked=!!S.likes[p.id],f=!!S.follows[p.u];
  const lb=$('[data-act="like"]',d);lb.classList.toggle("liked",liked);$(".lc",d).textContent=fmt(p.l+(liked?1:0));
@@ -317,14 +320,14 @@ function drawProfile(){const mineP=POSTS.filter(p=>p.u===ME),likedP=POSTS.filter
  const body=ptab==="posts"?(mineP.length?`<div class="grid g3">${mineP.map(thumb).join("")}</div>`:`<div class="empty">No videos yet. Tap + to create one.</div>`):
   ptab==="liked"?(likedP.length?`<div class="grid g3">${likedP.map(thumb).join("")}</div>`:`<div class="empty">Videos you like will appear here.</div>`):
   `<div class="empty"><div style="font-size:40px">${ic("lock")}</div><p>Only you can see these videos.</p></div>`;
- $("#profile").innerHTML=`<div class="ph"><div class="av">${ME[0].toUpperCase()}</div><b style="font-size:17px">@${ME}</b><div class="cl" style="font-size:12px;color:var(--cy);margin-top:4px"></div>
+ $("#profile").innerHTML=`<div class="ph"><div class="av">${ME[0].toUpperCase()}</div><b style="font-size:17px">@${ME}${MY.verified?TICK:""}</b><div class="vn">${MY.verified?"Verified creator":fmt(MY.followers||0)+" / "+fmt(MY.verifyAt||1000)+" followers to get the blue tick"}</div><div class="cl" style="font-size:12px;color:var(--cy);margin-top:4px"></div>
  <div class="st"><div><b>${fc}</b><span>Following</span></div><div><b>${fmt(MY.followers||0)}</b><span>Followers</span></div><div><b>${fmt(MY.likesReceived||0)}</b><span>Likes</span></div></div>
  <span class="btn">Edit profile</span><span class="btn g" id="lo">Log out</span><p style="margin-top:10px;color:#ccc">New on CODESTER ✨<br>Tap + to share your first video</p></div>
  <div class="tabs">${[["posts","grid"],["liked","heart"],["private","lock"]].map(t=>`<button class="${ptab===t[0]?"on":""}" data-p="${t[0]}">${ic(t[1])}</button>`).join("")}</div>${body}`;
  setCloud(cloud);$("#profile").onclick=e=>{if(e.target.id==="lo"){logout();return}const b=e.target.closest("[data-p]");if(b){ptab=b.dataset.p;drawProfile();return}const t=e.target.closest("[data-open]");if(t)playFrom(t.dataset.open)}}
 
 /* ============ views/Create.js : camera recording + upload ============ */
-const MAXS=30,MAX_MB=100;
+const MAXS=30;let MAX_MB=25;
 let fi=0,rec=null,stream=null,mr=null,chunks=[],fin=false;
 function openCreate(){const c=$("#create");c.classList.add("on");
  c.innerHTML=`<div class="cam" id="cam"><video id="pv" muted playsinline></video></div><button class="cx" id="cx" aria-label="Close">${ic("x")}</button>
@@ -347,7 +350,7 @@ function countdown(){let n=3;const d=document.createElement("div");d.className="
  rec={cd:setInterval(()=>{n--;if(n>0)d.textContent=n;else{clearInterval(rec.cd);d.remove();startRec()}},800)}}
 function startRec(){const t0=Date.now();$("#rb").classList.add("rec");$("#cam").classList.add("rec");$("#bars").style.visibility="visible";
  mr=null;
- if(stream&&window.MediaRecorder){chunks=[];try{mr=new MediaRecorder(stream)}catch(e){mr=null}
+ if(stream&&window.MediaRecorder){chunks=[];try{mr=new MediaRecorder(stream,{videoBitsPerSecond:1500000})}catch(e){mr=null}
   if(mr){const m=mr;m.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
    m.onstop=()=>{if(!fin)return;const type=(m.mimeType||"video/webm").split(";")[0];
     openUpload(new File([new Blob(chunks,{type})],"recording"+(type==="video/mp4"?".mp4":".webm"),{type}))};m.start()}}
@@ -386,7 +389,7 @@ function drawAuth(err=""){
  a.innerHTML=`<div class="ac"><div class="logo">CODESTER</div><p class="sub">${su?"Create your account to start watching":"Log in to continue"}</p>
  <div class="seg"><button data-m="login" class="${su?"":"on"}">Log in</button><button data-m="signup" class="${su?"on":""}">Sign up</button></div>
  <form id="af" novalidate>
- <label>Username<input name="u" autocomplete="username" autocapitalize="none" maxlength="20"></label>
+ <label>${su?"Username":"Username or email"}<input name="u" autocomplete="username" autocapitalize="none" maxlength="${su?20:254}"></label>
  ${su?`<label>Email<input name="e" type="email" autocomplete="email"></label>`:""}
  <label>Password<input name="p" type="password" autocomplete="${su?"new-password":"current-password"}"></label>
  ${su?`<label>Confirm password<input name="c" type="password" autocomplete="new-password"></label>`:""}
@@ -399,7 +402,8 @@ function drawAuth(err=""){
  $("#sp").onchange=e=>a.querySelectorAll("input[name=p],input[name=c]").forEach(i=>i.type=e.target.checked?"text":"password");
   $("#af").onsubmit=async e=>{e.preventDefault();
   const f=new FormData(e.target),u=(f.get("u")||"").trim().toLowerCase(),p=f.get("p")||"",fail=m=>{$("#aerr").textContent=m},btn=$(".go",a);
-  if(!/^[a-z0-9._]{3,20}$/.test(u))return fail("Username: 3\u201320 letters, numbers, dots or underscores.");
+  if(su&&!/^[a-z0-9._]{3,20}$/.test(u))return fail("Username: 3\u201320 letters, numbers, dots or underscores.");
+  if(!su&&!u)return fail("Enter your username or email.");
   const body={username:u,password:p};
   if(su){const em=(f.get("e")||"").trim().toLowerCase();
    if(!/^\S+@\S+\.\S+$/.test(em))return fail("Enter a valid email address.");
@@ -422,7 +426,7 @@ const ago=d=>{const s=(Date.now()-new Date(d))/1e3;return s<60?"now":s<3600?Math
 async function loadPosts(){const rows=await api("GET","/feed");POSTS.length=0;POSTS.push(...rows)}
 async function enterApp(u,fresh){
  ME=u;S.likes={};S.follows={};S.comments={};
- try{const st=await api("GET","/state");S.likes=st.likes;S.follows=st.follows;MY=st;await loadPosts()}
+ try{const st=await api("GET","/state");S.likes=st.likes;S.follows=st.follows;MY=st;if(st.maxVideoMb)MAX_MB=st.maxVideoMb;await loadPosts()}
  catch(e){if(e.status===401){LS.del("codester.token");TOKEN=null;ME=null;mode="login";go("home");return drawAuth("Session expired. Please log in again.")}toast(e.message)}
  $("#auth").classList.remove("on");$("#auth").innerHTML="";
  paintMute();active=null;cycle=0;tab="fy";document.querySelectorAll(".top .t").forEach(x=>x.classList.toggle("on",x.dataset.tab==="fy"));fillFeed();go("home");
@@ -434,11 +438,11 @@ function logout(){
 /* ---- shared comments (server-side, threaded one level, refreshed every 6 s while open) ---- */
 let replyTo=null;
 function openComments(id){
- const p=byId(id);replyTo=null;
+ if(unsubC){unsubC();unsubC=null}const p=byId(id);replyTo=null;
  sheet.innerHTML=`<div class="sh"><h4>Comments</h4><button data-x>${ic("x")}</button></div><div class="sb">Loading\u2026</div><div class="cin"><input placeholder="Add comment\u2026" maxlength="200"><button>Post</button></div>`;
  scrim.classList.add("on");$("[data-x]",sheet).onclick=closeSheet;
  const sb=$(".sb",sheet),inp=$("input",sheet);
- const item=(c,r)=>`<div class="cm${r?" r":""}"><div class="a">${esc(c.username[0]).toUpperCase()}</div><div><div class="u">@${esc(c.username)} \u00B7 ${ago(c.created_at)}</div>${esc(c.body)}${r?"":` <a class="rl" data-r="${c.id}" data-n="${esc(c.username)}">Reply</a>`}</div></div>`;
+ const item=(c,r)=>`<div class="cm${r?" r":""}"><div class="a">${esc(c.username[0]).toUpperCase()}</div><div><div class="u">@${esc(c.username)}${c.v?TICK:""} \u00B7 ${ago(c.created_at)}</div>${esc(c.body)}${r?"":` <a class="rl" data-r="${c.id}" data-n="${esc(c.username)}">Reply</a>`}</div></div>`;
  const draw=rows=>{const top=rows.filter(c=>!c.parent_id);
   sb.innerHTML=top.length?top.map(c=>item(c,0)+rows.filter(r=>r.parent_id===c.id).map(r=>item(r,1)).join("")).join(""):`<div class="empty" style="height:120px">No comments yet. Be the first!</div>`;
   $("h4",sheet).textContent=rows.length+" comments";p.cc=rows.length;feed.querySelectorAll(`.post[data-id="${id}"]`).forEach(sync)};
@@ -457,7 +461,7 @@ function go(v){if(v==="create"){openCreate();return}
  cur=v;document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id===v));
  $("#nav").querySelectorAll("[data-n]").forEach(b=>b.classList.toggle("on",b.dataset.n===v));
  if(v!=="home"&&active){const vd=$("video",active);vd&&vd.pause()}else if(active){const vd=$("video",active);vd&&vd.play().catch(()=>{})}
- if(v==="discover")drawDiscover();if(v==="inbox")drawInbox();if(v==="profile")drawProfile()}
+ if(v==="discover")drawDiscover();if(v==="inbox")drawInbox();if(v==="profile"){drawProfile();api("GET","/state").then(s=>{MY=s;if(cur==="profile")drawProfile()}).catch(()=>{})}}
 $("#nav").onclick=e=>{const b=e.target.closest("[data-n]");if(b)go(b.dataset.n)};
 document.addEventListener("visibilitychange",()=>{const v=active&&$("video",active);if(v)document.hidden?v.pause():cur==="home"&&v.play().catch(()=>{})});
 paintMute();
