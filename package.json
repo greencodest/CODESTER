@@ -1,23 +1,13 @@
 {
-  "name": "codester",
+  "name": "phms-sync-server",
   "version": "1.0.0",
-  "description": "CODESTER - short-video social app (Node/Express + PostgreSQL)",
+  "private": true,
+  "type": "module",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "test": "node test/smoke.js"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "license": "UNLICENSED",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "dotenv": "^18.0.10",
-    "express": "^4.22.3",
-    "express-rate-limit": "^8.7.4",
-    "helmet": "^8.3.0",
-    "jsonwebtoken": "^9.0.3",
-    "multer": "^2.5.0"
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0"
   }
 }
